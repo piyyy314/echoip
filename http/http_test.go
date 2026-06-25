@@ -284,6 +284,47 @@ func testIpFromRequest(t *testing.T, tests []ipTestCase) {
 	}
 }
 
+func TestSecurityHeaders(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+	s := httptest.NewServer(testServer().Handler())
+
+	resp, err := http.Get(s.URL + "/ip")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	wantHeaders := map[string]string{
+		"X-Content-Type-Options": "nosniff",
+		"X-Xss-Protection":       "1; mode=block",
+	}
+	for header, want := range wantHeaders {
+		if got := resp.Header.Get(header); got != want {
+			t.Errorf("Header %s: want %q, got %q", header, want, got)
+		}
+	}
+	if csp := resp.Header.Get("Content-Security-Policy"); csp == "" {
+		t.Error("Content-Security-Policy header is missing")
+	}
+}
+
+func TestErrorResponseContentType(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+	s := httptest.NewServer(testServer().Handler())
+
+	// Requesting an invalid path triggers a 404 with a plain-text body.
+	resp, err := http.Get(s.URL + "/no-such-path")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	ct := resp.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "text/plain") {
+		t.Errorf("expected text/plain Content-Type for error response, got %q", ct)
+	}
+}
+
 func TestCLIMatcher(t *testing.T) {
 	browserUserAgent := "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) " +
 		"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.28 " +

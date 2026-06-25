@@ -425,13 +425,35 @@ func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			e.Message = string(b)
 		}
-		// Set Content-Type of response if set in error
+		// Set Content-Type of response. Default to text/plain to prevent
+		// browsers from sniffing user-controlled error messages as HTML.
 		if e.ContentType != "" {
 			w.Header().Set("Content-Type", e.ContentType)
+		} else {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		}
 		w.WriteHeader(e.Code)
 		fmt.Fprint(w, e.Message)
 	}
+}
+
+// withSecurityHeaders adds security-related HTTP response headers to every
+// response served by next. The headers mitigate common web vulnerabilities:
+//   - X-Content-Type-Options prevents MIME-type sniffing.
+//   - X-XSS-Protection enables the legacy XSS auditor in older browsers.
+//   - Content-Security-Policy restricts which resources the browser may load.
+func withSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'none'; "+
+				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
+				"font-src https://fonts.gstatic.com; "+
+				"frame-src https://www.openstreetmap.org; "+
+				"img-src 'self' data:")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) Handler() http.Handler {
@@ -481,7 +503,7 @@ func (s *Server) Handler() http.Handler {
 		r.RoutePrefix("GET", "/debug/pprof/", wrapHandlerFunc(pprof.Index))
 	}
 
-	return r.Handler()
+	return withSecurityHeaders(r.Handler())
 }
 
 func (s *Server) ListenAndServe(addr string) error {
