@@ -296,7 +296,6 @@ func TestSecurityHeaders(t *testing.T) {
 
 	wantHeaders := map[string]string{
 		"X-Content-Type-Options": "nosniff",
-		"X-Xss-Protection":       "1; mode=block",
 	}
 	for header, want := range wantHeaders {
 		if got := resp.Header.Get(header); got != want {
@@ -305,6 +304,9 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 	if csp := resp.Header.Get("Content-Security-Policy"); csp == "" {
 		t.Error("Content-Security-Policy header is missing")
+	}
+	if xss := resp.Header.Get("X-XSS-Protection"); xss != "" {
+		t.Errorf("X-XSS-Protection header should not be set (deprecated), got %q", xss)
 	}
 }
 

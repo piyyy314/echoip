@@ -440,12 +440,10 @@ func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // withSecurityHeaders adds security-related HTTP response headers to every
 // response served by next. The headers mitigate common web vulnerabilities:
 //   - X-Content-Type-Options prevents MIME-type sniffing.
-//   - X-XSS-Protection enables the legacy XSS auditor in older browsers.
 //   - Content-Security-Policy restricts which resources the browser may load.
 func withSecurityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'none'; "+
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
